@@ -10,8 +10,8 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', "supersecretkey")
 
 # Enable CORS for all routes and origins
 CORS(app)
-# Enable CORS for Socket.IO with eventlet support for deployment
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# Enable CORS for Socket.IO with threading support for better deployment compatibility
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # ======================
 # Database setup

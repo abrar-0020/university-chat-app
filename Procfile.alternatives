@@ -1,0 +1,10 @@
+# Alternative deployment configurations
+
+# Option 1: Direct Python execution (current)
+web: python app.py
+
+# Option 2: Gunicorn with threading (if option 1 fails)
+# web: gunicorn --worker-class sync --threads 2 --bind 0.0.0.0:$PORT app:app
+
+# Option 3: Gunicorn with gevent (if you want async)
+# web: gunicorn --worker-class gevent -w 1 --bind 0.0.0.0:$PORT app:socketio
