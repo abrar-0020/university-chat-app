@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>University Chat System - Real Time</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        function App() {
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [username, setUsername] = useState('');
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [isRegistering, setIsRegistering] = useState(false);
+            const [message, setMessage] = useState('');
+            const [chatMessage, setChatMessage] = useState('');
+            const [messages, setMessages] = useState([]);
+            const [isConnected, setIsConnected] = useState(false);
+            const [onlineUsers, setOnlineUsers] = useState([]);
+            const socketRef = useRef(null);
+            const messagesEndRef = useRef(null);
+
+            // Get the current host and port
+            const baseUrl = `${window.location.protocol}//${window.location.host}`;
+
+            useEffect(() => {
+                // Initialize Socket.IO connection when component mounts
+                socketRef.current = io(baseUrl);
+                
+                socketRef.current.on('connect', () => {
+                    console.log('Connected to server');
+                    setIsConnected(true);
+                });
+
+                socketRef.current.on('disconnect', () => {
+                    console.log('Disconnected from server');
+                    setIsConnected(false);
+                });
+
+                socketRef.current.on('receive_message', (data) => {
+                    console.log('Received message:', data);
+                    setMessages(prev => [...prev, data]);
+                });
+
+                socketRef.current.on('connection_status', (data) => {
+                    console.log('Connection status:', data);
+                });
+
+                socketRef.current.on('user_joined', (data) => {
+                    console.log('User joined:', data.username);
+                });
+
+                socketRef.current.on('user_left', (data) => {
+                    console.log('User left:', data.username);
+                });
+
+                socketRef.current.on('error', (data) => {
+                    console.error('Socket error:', data);
+                });
+
+                // Cleanup on unmount
+                return () => {
+                    if (socketRef.current) {
+                        socketRef.current.disconnect();
+                    }
+                };
+            }, []);
+
+            // Auto-scroll to bottom when new messages arrive
+            useEffect(() => {
+                if (messagesEndRef.current) {
+                    messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, [messages]);
+
+            // Join chat room when logged in
+            useEffect(() => {
+                if (isLoggedIn && username && socketRef.current) {
+                    socketRef.current.emit('join_chat', { username });
+                }
+            }, [isLoggedIn, username]);
+
+            const fetchMessages = async () => {
+                try {
+                    const response = await fetch(`${baseUrl}/messages`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        setMessages(data.messages);
+                    }
+                } catch (error) {
+                    console.error('Error fetching messages:', error);
+                }
+            };
+
+            const handleAuth = async (e) => {
+                e.preventDefault();
+                const endpoint = isRegistering ? '/register' : '/login';
+                const payload = isRegistering 
+                    ? { email, username, password }
+                    : { email, password };
+
+                try {
+                    const response = await fetch(`${baseUrl}${endpoint}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        if (isRegistering) {
+                            setMessage(data.message);
+                            setIsRegistering(false);
+                        } else {
+                            setIsLoggedIn(true);
+                            setUsername(data.username);
+                            setMessage('');
+                            // Fetch existing messages
+                            fetchMessages();
+                        }
+                    } else {
+                        setMessage(data.error);
+                    }
+                } catch (error) {
+                    setMessage('Connection error. Please make sure the backend is running.');
+                }
+            };
+
+            const sendMessage = () => {
+                if (chatMessage.trim() && socketRef.current && username) {
+                    // Send via Socket.IO for real-time delivery
+                    socketRef.current.emit('send_message', {
+                        msg: chatMessage,
+                        username: username
+                    });
+                    setChatMessage('');
+                }
+            };
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            };
+
+            if (!isLoggedIn) {
+                return React.createElement('div', { className: "min-h-screen bg-gray-50 flex items-center justify-center p-4" },
+                    React.createElement('div', { className: "bg-white p-8 rounded-lg shadow-md w-full max-w-md" },
+                        React.createElement('h1', { className: "text-2xl font-bold text-center mb-6" }, "University Chat System"),
+                        
+                        // Connection status indicator
+                        React.createElement('div', { className: `mb-4 p-2 rounded text-center text-sm ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}` },
+                            isConnected ? '🟢 Connected to server' : '🔴 Disconnected from server'
+                        ),
+                        
+                        React.createElement('form', { onSubmit: handleAuth, className: "space-y-4" },
+                            React.createElement('div', null,
+                                React.createElement('label', { className: "block text-sm font-medium text-gray-700" }, "University Email"),
+                                React.createElement('input', {
+                                    type: "email",
+                                    value: email,
+                                    onChange: (e) => setEmail(e.target.value),
+                                    placeholder: "yourname@university.edu",
+                                    className: "mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md",
+                                    required: true
+                                })
+                            ),
+
+                            isRegistering && React.createElement('div', null,
+                                React.createElement('label', { className: "block text-sm font-medium text-gray-700" }, "Username"),
+                                React.createElement('input', {
+                                    type: "text",
+                                    value: username,
+                                    onChange: (e) => setUsername(e.target.value),
+                                    className: "mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md",
+                                    required: true
+                                })
+                            ),
+
+                            React.createElement('div', null,
+                                React.createElement('label', { className: "block text-sm font-medium text-gray-700" }, "Password"),
+                                React.createElement('input', {
+                                    type: "password",
+                                    value: password,
+                                    onChange: (e) => setPassword(e.target.value),
+                                    className: "mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md",
+                                    required: true
+                                })
+                            ),
+
+                            React.createElement('button', {
+                                type: "submit",
+                                className: "w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"
+                            }, isRegistering ? 'Register' : 'Login')
+                        ),
+
+                        React.createElement('div', { className: "mt-4 text-center" },
+                            React.createElement('button', {
+                                onClick: () => {
+                                    setIsRegistering(!isRegistering);
+                                    setMessage('');
+                                },
+                                className: "text-blue-600 hover:text-blue-800"
+                            }, isRegistering ? 'Already have an account? Login' : 'Need an account? Register')
+                        ),
+
+                        message && React.createElement('div', {
+                            className: `mt-4 p-3 rounded ${message.includes('✅') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`
+                        }, message)
+                    )
+                );
+            }
+
+            return React.createElement('div', { className: "min-h-screen bg-gray-50 flex flex-col" },
+                React.createElement('div', { className: "bg-white shadow-sm p-4 flex justify-between items-center" },
+                    React.createElement('div', { className: "flex items-center space-x-4" },
+                        React.createElement('h1', { className: "text-xl font-bold" }, "University Chat"),
+                        React.createElement('div', { className: `px-2 py-1 rounded text-xs ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}` },
+                            isConnected ? '🟢 Online' : '🔴 Offline'
+                        )
+                    ),
+                    React.createElement('div', { className: "flex items-center space-x-4" },
+                        React.createElement('span', null, `Welcome, ${username}!`),
+                        React.createElement('button', {
+                            onClick: () => {
+                                if (socketRef.current) {
+                                    socketRef.current.emit('leave_chat', { username });
+                                }
+                                setIsLoggedIn(false);
+                                setUsername('');
+                                setEmail('');
+                                setPassword('');
+                                setMessages([]);
+                            },
+                            className: "bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                        }, "Logout")
+                    )
+                ),
+
+                React.createElement('div', { className: "flex-1 flex flex-col p-4" },
+                    React.createElement('div', { className: "bg-white rounded-lg shadow flex-1 flex flex-col" },
+                        React.createElement('div', { className: "flex-1 p-4 overflow-y-auto max-h-96" },
+                            messages.length === 0 ? React.createElement('p', { className: "text-gray-500 text-center" }, "No messages yet. Start a conversation!") :
+                            messages.map((msg, index) =>
+                                React.createElement('div', { key: index, className: `mb-2 p-3 rounded-lg ${msg.user === username ? 'bg-blue-100 ml-8' : 'bg-gray-100 mr-8'}` },
+                                    React.createElement('div', { className: "flex justify-between items-start" },
+                                        React.createElement('strong', { className: msg.user === username ? 'text-blue-700' : 'text-gray-700' }, msg.user),
+                                        React.createElement('span', { className: "text-xs text-gray-500 ml-2" }, new Date().toLocaleTimeString())
+                                    ),
+                                    React.createElement('div', { className: "mt-1" }, msg.msg)
+                                )
+                            ),
+                            React.createElement('div', { ref: messagesEndRef })
+                        ),
+
+                        React.createElement('div', { className: "border-t p-4 flex space-x-2" },
+                            React.createElement('input', {
+                                type: "text",
+                                value: chatMessage,
+                                onChange: (e) => setChatMessage(e.target.value),
+                                onKeyPress: handleKeyPress,
+                                placeholder: "Type your message...",
+                                className: "flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500",
+                                disabled: !isConnected
+                            }),
+                            React.createElement('button', {
+                                onClick: sendMessage,
+                                disabled: !isConnected || !chatMessage.trim(),
+                                className: `px-4 py-2 rounded-md text-white ${!isConnected || !chatMessage.trim() ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`
+                            }, "Send")
+                        )
+                    )
+                )
+            );
+        }
+
+        ReactDOM.render(React.createElement(App), document.getElementById('root'));
+    </script>
+</body>
+</html>
