@@ -5,6 +5,8 @@ import sqlite3
 import bcrypt
 import os
 
+print("✅ University Chat App - Loading with THREADING mode (NO eventlet)")
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', "supersecretkey")
 
@@ -177,5 +179,11 @@ def handle_leave_chat(data):
 # Run the application
 # ======================
 if __name__ == "__main__":
+    print("🚀 Starting University Chat App with direct Python execution")
+    print("📡 Using Flask-SocketIO with threading mode (NOT eventlet)")
+    print("🚫 NO gunicorn, NO eventlet, NO gevent")
+    
     port = int(os.environ.get('PORT', 5000))
+    print(f"🌐 Binding to host=0.0.0.0, port={port}")
+    
     socketio.run(app, host="0.0.0.0", port=port, debug=False)
