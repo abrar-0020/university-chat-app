@@ -9,10 +9,11 @@ The deployment was failing due to:
 
 ## 🔧 **Applied Fixes:**
 
-### ⚠️ Fix 0: REMOVED render.yaml (LATEST FIX!)
-- **Deleted render.yaml entirely** to force Procfile usage
-- render.yaml was overriding Procfile even after updates
-- Now Render MUST use: `web: python app.py` from Procfile
+### ⚠️ Fix 0: EXPLICIT render.yaml (FINAL ATTEMPT!)
+- **Recreated render.yaml** with explicit `startCommand: python app.py`
+- **Added build.sh** to prevent auto-detection of gunicorn
+- **Added debug logging** to app.py to prove we're using direct Python execution
+- **Render MUST use this explicit configuration now**
 
 ### Fix 0.5: Removed gunicorn dependency
 - **Removed gunicorn==21.2.0** from requirements.txt
@@ -53,7 +54,7 @@ Werkzeug==2.3.7
 1. **Commit changes:**
    ```bash
    git add .
-   git commit -m "🔧 NUCLEAR FIX: Remove render.yaml and gunicorn completely"
+   git commit -m "🔧 EXPLICIT CONFIG: Add debug logging and explicit render.yaml to prevent gunicorn auto-detection"
    git push origin main
    ```
 
