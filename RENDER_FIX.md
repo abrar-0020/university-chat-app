@@ -9,6 +9,14 @@ The deployment was failing due to:
 
 ## 🔧 **Applied Fixes:**
 
+### ⚠️ Fix 0: render.yaml (CRITICAL - Just Fixed!)
+```yaml
+startCommand: python app.py
+```
+- **Root cause found!** The `render.yaml` was overriding Procfile
+- Was using: `gunicorn --worker-class gevent` (causing the error)
+- Now uses: `python app.py` (direct execution)
+
 ### Fix 1: Simplified Procfile
 ```
 web: python app.py
@@ -43,7 +51,7 @@ Werkzeug==2.3.7
 1. **Commit changes:**
    ```bash
    git add .
-   git commit -m "🔧 Fix deployment issues - use threading mode"
+   git commit -m "🔧 FINAL FIX: Update render.yaml to use direct Python execution"
    git push origin main
    ```
 
